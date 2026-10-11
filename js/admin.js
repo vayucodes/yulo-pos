@@ -3,6 +3,8 @@ import * as db from './db.js';
 import * as printer from './printer.js';
 import {S, emit, reloadProducts, saveSettings, categories, saveAllFiles, savePendingFiles} from './state.js';
 import * as files from './files.js';
+import * as drive from './drive.js';
+import {clearDriveChanged} from './state.js';
 import {esc, rupees, toPaise, dayKey, download, billLabel} from './util.js';
 import {buildReceipt, toText, toEscPos} from './receipt.js';
 import {parseCSV, toCSV} from './csv.js';
@@ -158,6 +160,7 @@ export function initSettings() {
     toast('All bills are saved in the YULO Bills folder');
   };
   $('#fAllow').onclick = () => allowFolder();
+  $('#dSync').onclick = () => syncDrive();
   $('#fRebuild').onclick = rebuildFromFolder;
   $('#sErase').onclick = async () => {
     if (!await confirmBox('Erase ALL bills, menu changes and settings on this tablet? Make a backup first. This cannot be undone.', 'Erase everything', true)) return;
@@ -177,6 +180,8 @@ export async function renderSettings() {
     none: 'Not set up yet. Tap "Choose bills folder".', 'needs-permission': 'Folder chosen, but Android needs your permission again. Tap "Allow folder access".',
     ready: 'Saving every bill to: YULO Bills / Months / (month) /'}[fs] + (pend && fs !== 'unsupported' ? ` ${pend} ${pend === 1 ? 'bill is' : 'bills are'} waiting to be saved.` : '');
   $('#fAllow').hidden = fs !== 'needs-permission';
+  if (!syncing) $('#dStatus').textContent = await driveStatus();
+  if (navigator.onLine) drive.loadGoogle().catch(() => {});   // ready before the tap, so Google's sign-in window can open
   $('#fChoose').textContent = fs === 'none' || fs === 'unsupported' ? 'Choose bills folder' : 'Change bills folder';
   $('#fChoose').disabled = fs === 'unsupported';
   const last = await db.getMeta('lastBackup', null);
@@ -218,6 +223,23 @@ async function restore(text) {
   await db.replaceAll({...data, meta: data.meta.filter(m => m.key !== 'billsDir')});
   if (dir) await db.setMeta('billsDir', dir);
   location.reload();
+}
+
+// ================= GOOGLE DRIVE =================
+let syncing = false;
+async function driveStatus() {
+  const last = await db.getMeta('lastDriveSync', null), n = (await drive.waiting()).length;
+  return `Last sync: ${last ? new Date(last).toLocaleString('en-IN') : 'never'}. ` + (n ? `${n} ${n === 1 ? 'bill is' : 'bills are'} waiting to be synced.` : 'Everything is synced.');
+}
+export async function syncDrive() {
+  if (syncing) return;
+  if (!navigator.onLine) return toast('No internet. Sync needs Wi-Fi; billing works without it.', true);
+  syncing = true; const st = $('#dStatus'), btn = $('#dSync'); btn.disabled = true; st.textContent = 'Connecting to Google…';
+  try {
+    const n = await drive.sync(S.settings, clearDriveChanged, (i, total) => st.textContent = `Uploading ${i} of ${total}…`);
+    toast(n ? `Synced ${n} ${n === 1 ? 'bill' : 'bills'} to Google Drive` : 'Nothing new to sync. Google Drive is up to date.');
+  } catch (e) { toast('Drive sync stopped: ' + e.message.replace(/\.$/, '') + '. Bills already sent are safe; tap Sync again to continue.', true); }
+  syncing = false; btn.disabled = false; st.textContent = await driveStatus(); emit('drive');
 }
 
 // ================= BILLS FOLDER =================

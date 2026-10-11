@@ -23,6 +23,7 @@ export async function put(s, v) { const t = db.transaction(s, 'readwrite'); cons
 export async function del(s, k) { const t = db.transaction(s, 'readwrite'); t.objectStore(s).delete(k); await done(t); }
 export async function putMany(s, items) { const t = db.transaction(s, 'readwrite'); const st = t.objectStore(s); items.forEach(i => st.put(i)); await done(t); }
 export const billsBetween = (from, to) => req(db.transaction('bills').objectStore('bills').index('day').getAll(IDBKeyRange.bound(from, to)));
+export const billNumbers = () => req(db.transaction('bills').objectStore('bills').getAllKeys());
 export async function maxBillNo() { const c = await req(db.transaction('bills').objectStore('bills').openCursor(null, 'prev')); return c ? c.key : 0; }
 export async function getMeta(k, def) { const r = await get('meta', k); return r ? r.value : def; }
 export const setMeta = (k, v) => put('meta', {key: k, value: v});

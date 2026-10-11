@@ -46,10 +46,16 @@ export async function printBill(bill) {
 let fileQueue = Promise.resolve();
 export function saveBillFile(bill) { fileQueue = fileQueue.then(() => saveNow(bill)); return fileQueue; }
 async function saveNow(bill) {
+  const changed = await db.getMeta('driveChanged', {}); changed[bill.no] = (changed[bill.no] || 0) + 1;   // needs (re)sending to Drive
+  await db.setMeta('driveChanged', changed);
   const pending = new Set(await db.getMeta('pendingFiles', []));
   try { await files.writeBill(bill, S.settings); pending.delete(bill.no); }
   catch { pending.add(bill.no); }
   await db.setMeta('pendingFiles', [...pending]); emit('files');
+}
+export function clearDriveChanged(no, ver) {
+  fileQueue = fileQueue.then(async () => { const c = await db.getMeta('driveChanged', {}); if (c[no] === ver) { delete c[no]; await db.setMeta('driveChanged', c); } });
+  return fileQueue;
 }
 export async function savePendingFiles() { for (const no of await db.getMeta('pendingFiles', [])) { const b = await db.get('bills', no); if (b) await saveBillFile(b); } }
 export async function saveAllFiles() { for (const b of await db.all('bills')) await saveBillFile(b); }

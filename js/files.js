@@ -28,12 +28,14 @@ export async function allow() { return dir ? await dir.requestPermission({mode: 
 export const monthFolder = b => { const d = new Date(b.createdAt); return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`; };
 export const fileName = b => `Bill${billLabel(b.no)}_${fmtDate(new Date(b.createdAt))}.txt`;
 
+export const billText = (bill, settings) => toText(buildReceipt(bill, settings, false), settings.paperCols) + '\n\n#DATA ' + JSON.stringify(bill) + '\n';
+
 export async function writeBill(bill, settings) {
   if (await status() !== 'ready') throw new Error('Bills folder not available');
   const months = await dir.getDirectoryHandle('Months', {create: true});
   const month = await months.getDirectoryHandle(monthFolder(bill), {create: true});
   const w = await (await month.getFileHandle(fileName(bill), {create: true})).createWritable();
-  await w.write(toText(buildReceipt(bill, settings, false), settings.paperCols) + '\n\n#DATA ' + JSON.stringify(bill) + '\n');
+  await w.write(billText(bill, settings));
   await w.close();
 }
 // Reads every bill file back. Files that can't be read are listed in `bad`, never guessed.

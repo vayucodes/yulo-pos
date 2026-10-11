@@ -4,10 +4,11 @@ import * as printer from './printer.js';
 import {S, bus, loadAll} from './state.js';
 import {initBilling, refreshBilling} from './billing.js';
 import {initBills, renderBills, initReports, renderReports} from './bills.js';
-import {initMenu, renderMenu, initSettings, renderSettings, allowFolder} from './admin.js';
+import {initMenu, renderMenu, initSettings, renderSettings, allowFolder, syncDrive} from './admin.js';
+import * as drive from './drive.js';
 import * as files from './files.js';
 import {toast} from './ui.js';
-export const VERSION = '1.1.0';
+export const VERSION = '1.2.1';
 const $ = s => document.querySelector(s);
 let view = 'billing';
 const RENDER = {billing: refreshBilling, bills: renderBills, reports: renderReports, menu: renderMenu, settings: renderSettings};
@@ -39,6 +40,18 @@ async function checkFiles() {
   b.querySelector('button').textContent = ask ? 'Allow folder access' : 'Set up folder';
   b.querySelector('button').onclick = () => ask ? allowFolder().then(checkFiles) : show('settings');
 }
+// Month-end reminder: on the last day of the month, or whenever bills from an earlier month are not on Drive yet.
+async function checkDrive() {
+  const w = await drive.waiting(), b = $('#driveBanner'), now = new Date();
+  let due = false;
+  if (w.length) {
+    const lastDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getDate() === 1;
+    const oldest = await db.get('bills', Math.min(...w)), d = oldest && new Date(oldest.createdAt);
+    due = lastDay || !!(d && (d.getFullYear() * 12 + d.getMonth() < now.getFullYear() * 12 + now.getMonth()));
+  }
+  b.hidden = !due;
+  if (due) { b.querySelector('span').textContent = `Month end: ${w.length} ${w.length === 1 ? 'bill is' : 'bills are'} not on Google Drive yet.`; if (navigator.onLine) drive.loadGoogle().catch(() => {}); }
+}
 function updateBanner(worker) {
   const b = $('#updateBanner'); b.hidden = false;
   b.querySelector('button').onclick = () => worker.postMessage('skip');
@@ -59,12 +72,14 @@ async function boot() {
   printer.onChange(paintChip);
   printer.autoConnect();
   bus.addEventListener('products', () => { refreshBilling(); if (view === 'menu') renderMenu(); });
-  bus.addEventListener('bills', () => { checkBackup(); if (view !== 'billing') RENDER[view](); });
+  bus.addEventListener('bills', () => { checkBackup(); checkDrive(); if (view !== 'billing') RENDER[view](); });
   bus.addEventListener('settings', () => { refreshBilling(); if (view === 'settings') renderSettings(); });
   bus.addEventListener('backup', checkBackup);
+  bus.addEventListener('drive', checkDrive);
+  $('#driveBanner button').onclick = () => syncDrive();
   bus.addEventListener('files', () => { checkFiles(); if (view === 'settings') renderSettings(); });
   checkFiles();
-  checkBackup(); setInterval(checkBackup, 15 * 60e3);
+  checkBackup(); checkDrive(); setInterval(() => { checkBackup(); checkDrive(); }, 15 * 60e3);
   $('#version').textContent = VERSION;
   show('billing');
 
