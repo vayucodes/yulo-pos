@@ -4,9 +4,10 @@ import * as printer from './printer.js';
 import {S, bus, loadAll} from './state.js';
 import {initBilling, refreshBilling} from './billing.js';
 import {initBills, renderBills, initReports, renderReports} from './bills.js';
-import {initMenu, renderMenu, initSettings, renderSettings} from './admin.js';
+import {initMenu, renderMenu, initSettings, renderSettings, allowFolder} from './admin.js';
+import * as files from './files.js';
 import {toast} from './ui.js';
-export const VERSION = '1.0.0';
+export const VERSION = '1.1.0';
 const $ = s => document.querySelector(s);
 let view = 'billing';
 const RENDER = {billing: refreshBilling, bills: renderBills, reports: renderReports, menu: renderMenu, settings: renderSettings};
@@ -27,6 +28,16 @@ async function checkBackup() {
   const lastBill = await db.getMeta('lastBillAt', null), last = await db.getMeta('lastBackup', null);
   const due = lastBill && (!last || (lastBill > last && Date.now() - new Date(last) > 24 * 3600e3));
   $('#backupBanner').hidden = !due;
+}
+// Reminds the operator when bills are not reaching the YULO Bills folder.
+async function checkFiles() {
+  const st = await files.status(), pend = (await db.getMeta('pendingFiles', [])).length, b = $('#fileBanner');
+  b.hidden = st === 'unsupported' || (st === 'ready' && !pend) || (st === 'none' && !pend);
+  if (b.hidden) return;
+  const ask = st === 'needs-permission';
+  b.querySelector('span').textContent = ask ? 'Bills folder needs permission to keep saving bill files.' : `${pend} ${pend === 1 ? 'bill is' : 'bills are'} not saved in the YULO Bills folder yet.`;
+  b.querySelector('button').textContent = ask ? 'Allow folder access' : 'Set up folder';
+  b.querySelector('button').onclick = () => ask ? allowFolder().then(checkFiles) : show('settings');
 }
 function updateBanner(worker) {
   const b = $('#updateBanner'); b.hidden = false;
@@ -51,6 +62,8 @@ async function boot() {
   bus.addEventListener('bills', () => { checkBackup(); if (view !== 'billing') RENDER[view](); });
   bus.addEventListener('settings', () => { refreshBilling(); if (view === 'settings') renderSettings(); });
   bus.addEventListener('backup', checkBackup);
+  bus.addEventListener('files', () => { checkFiles(); if (view === 'settings') renderSettings(); });
+  checkFiles();
   checkBackup(); setInterval(checkBackup, 15 * 60e3);
   $('#version').textContent = VERSION;
   show('billing');

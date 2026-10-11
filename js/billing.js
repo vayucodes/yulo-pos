@@ -1,6 +1,6 @@
 // Counter billing screen.
 import * as db from './db.js';
-import {S, categories, emit} from './state.js';
+import {S, categories, emit, saveBillFile} from './state.js';
 import {esc, rupees, billLabel, dayKey} from './util.js';
 import {computeTax} from './tax.js';
 import {keypad, confirmBox, toast} from './ui.js';
@@ -88,7 +88,7 @@ async function completeAndPrint() {
       itemCount: t.count, subtotal: t.subtotal, discount: t.disc, tax: t.tax, total: t.total,
       status: 'completed', print: {status: 'pending', count: 0}
     });
-    cart = []; discount = 0; emit('bills');
+    cart = []; discount = 0; emit('bills'); saveBillFile(bill);
     billModal(bill, {fresh: true});
   } catch (e) { toast('The bill could not be saved (' + e.message + '). Nothing was recorded; tap Print Bill again.', true); }
   finally { busy = false; renderBill(); renderProducts(); }

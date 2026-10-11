@@ -1,7 +1,7 @@
 // Bill history, one bill's details (print / reprint / cancel), and sales reports.
 import * as db from './db.js';
 import * as printer from './printer.js';
-import {S, emit, printBill} from './state.js';
+import {S, emit, printBill, saveBillFile} from './state.js';
 import {esc, rupees, billLabel, dayKey, fmtDate, fmtTime} from './util.js';
 import {buildReceipt, toText} from './receipt.js';
 import {modal, confirmBox, toast} from './ui.js';
@@ -38,7 +38,7 @@ export function billModal(bill, {fresh = false} = {}) {
     if (a === 'print') doPrint();
     if (a === 'connect') { try { await printer.connect(); paint(); doPrint(); } catch (err) { if (err.name !== 'NotFoundError') toast('Printer: ' + err.message, true); } }
     if (a === 'cancel' && await confirmBox(`Cancel bill ${billLabel(bill.no)}? It stays in history but is removed from sales totals. This cannot be undone.`, 'Cancel bill', true)) {
-      bill.status = 'cancelled'; bill.cancelledAt = new Date().toISOString(); await db.put('bills', bill); emit('bills'); paint();
+      bill.status = 'cancelled'; bill.cancelledAt = new Date().toISOString(); await db.put('bills', bill); emit('bills'); saveBillFile(bill); paint();
     }
   };
   paint();

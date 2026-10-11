@@ -30,6 +30,14 @@ Works without internet after the first opening. No subscription, no server: bill
 **Add item** for new dishes. **Rename category** to rename a section. **Export CSV / Import CSV** to edit many items in a spreadsheet;
 importing matches items by name, so it never creates duplicates, and shows what will change before applying.
 
+## Bills folder (.txt files)
+Settings > Bills folder > **Choose bills folder**: pick or create **YULO Bills** (if you pick another folder, YULO Bills is created inside it).
+Every bill is then saved automatically as `YULO Bills/Months/October 2026/Bill#01_10-10-2026.txt` the moment it is made.
+The file looks like the receipt; its last line (`#DATA ...`) lets the app read the bill back. Don't edit that line.
+If Android asks again, a banner says **Allow folder access**: tap it and any waiting bills are saved.
+If the app's data is ever cleared: Settings > **Choose bills folder** (same YULO Bills folder) > **Rebuild from folder**.
+Bills, reports and bill numbering come back. Menu changes and settings come back only from a backup.
+
 ## Backup (do this every day)
 Settings > Backup > **Send backup to Drive / WhatsApp** (or **Save backup to tablet**). A yellow banner reminds you if a day passes without one.
 To recover: Settings > Backup > **Restore from backup** and pick the file.

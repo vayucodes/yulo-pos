@@ -46,7 +46,7 @@ export async function completeBill(bill) {
   await done(t);
   return bill;
 }
-export async function dump() { return {products: await all('products'), bills: await all('bills'), meta: await all('meta')}; }
+export async function dump() { return {products: await all('products'), bills: await all('bills'), meta: (await all('meta')).filter(m => m.key !== 'billsDir')}; }
 export async function replaceAll(data) {
   const t = db.transaction(['products', 'bills', 'meta'], 'readwrite');
   for (const s of ['products', 'bills', 'meta']) { const st = t.objectStore(s); st.clear(); (data[s] || []).forEach(x => st.put(x)); }

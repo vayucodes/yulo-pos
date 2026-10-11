@@ -1,7 +1,8 @@
 // Menu management, settings, backup and restore.
 import * as db from './db.js';
 import * as printer from './printer.js';
-import {S, emit, reloadProducts, saveSettings, categories} from './state.js';
+import {S, emit, reloadProducts, saveSettings, categories, saveAllFiles, savePendingFiles} from './state.js';
+import * as files from './files.js';
 import {esc, rupees, toPaise, dayKey, download, billLabel} from './util.js';
 import {buildReceipt, toText, toEscPos} from './receipt.js';
 import {parseCSV, toCSV} from './csv.js';
@@ -151,6 +152,13 @@ export function initSettings() {
   $('#sBackupShare').onclick = () => backup('share');
   $('#sRestore').onclick = () => $('#sRestoreFile').click();
   $('#sRestoreFile').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (f) restore(await f.text()); };
+  $('#fChoose').onclick = async () => {
+    try { await files.choose(); } catch (e) { if (e.name !== 'AbortError') toast('Folder: ' + e.message, true); return; }
+    toast('Bills folder set. Saving all bills into it…'); await saveAllFiles(); renderSettings();
+    toast('All bills are saved in the YULO Bills folder');
+  };
+  $('#fAllow').onclick = () => allowFolder();
+  $('#fRebuild').onclick = rebuildFromFolder;
   $('#sErase').onclick = async () => {
     if (!await confirmBox('Erase ALL bills, menu changes and settings on this tablet? Make a backup first. This cannot be undone.', 'Erase everything', true)) return;
     if (!await confirmBox('Are you sure? Every bill will be permanently deleted.', 'Yes, erase', true)) return;
@@ -164,6 +172,13 @@ export async function renderSettings() {
   document.querySelectorAll('[name=pkind]').forEach(r => r.checked = r.value === s.printerKind);
   $('#sPaper').value = String(s.paperCols); $('#sDisc').checked = !!s.discounts;
   $('#sNext').textContent = billLabel(await db.getMeta('nextBillNo', 1));
+  const fs = await files.status(), pend = (await db.getMeta('pendingFiles', [])).length;
+  $('#fStatus').textContent = {unsupported: 'This Chrome cannot save to folders. Update Google Chrome from the Play Store.',
+    none: 'Not set up yet. Tap "Choose bills folder".', 'needs-permission': 'Folder chosen, but Android needs your permission again. Tap "Allow folder access".',
+    ready: 'Saving every bill to: YULO Bills / Months / (month) /'}[fs] + (pend && fs !== 'unsupported' ? ` ${pend} ${pend === 1 ? 'bill is' : 'bills are'} waiting to be saved.` : '');
+  $('#fAllow').hidden = fs !== 'needs-permission';
+  $('#fChoose').textContent = fs === 'none' || fs === 'unsupported' ? 'Choose bills folder' : 'Change bills folder';
+  $('#fChoose').disabled = fs === 'unsupported';
   const last = await db.getMeta('lastBackup', null);
   $('#sLastBackup').textContent = last ? new Date(last).toLocaleString('en-IN') : 'Never';
   const persisted = await navigator.storage?.persisted?.();
@@ -199,5 +214,32 @@ async function restore(text) {
   if (data.app !== 'yulo-pos' || !Array.isArray(data.products) || !Array.isArray(data.bills) || !Array.isArray(data.meta)) return toast('That file is not a YULO backup.', true);
   const nowBills = (await db.all('bills')).length;
   if (!await confirmBox(`Replace everything on this tablet (${nowBills} bills, ${S.products.length} menu items) with the backup from ${new Date(data.exportedAt).toLocaleString('en-IN')} (${data.bills.length} bills, ${data.products.length} menu items)?`, 'Restore backup', true)) return;
-  await db.replaceAll(data); location.reload();
+  const dir = await db.getMeta('billsDir', null);
+  await db.replaceAll({...data, meta: data.meta.filter(m => m.key !== 'billsDir')});
+  if (dir) await db.setMeta('billsDir', dir);
+  location.reload();
+}
+
+// ================= BILLS FOLDER =================
+export async function allowFolder() {
+  if (await files.allow()) { await savePendingFiles(); toast('Folder access allowed'); } else toast('Folder access was not allowed. Bills are still saved in the app.', true);
+  if (document.querySelector('#v-settings:not([hidden])')) renderSettings();
+}
+async function rebuildFromFolder() {
+  let st = await files.status();
+  if (st === 'needs-permission' && await files.allow()) st = 'ready';
+  if (st !== 'ready') return toast('Choose the YULO Bills folder first.', true);
+  const {bills, bad} = await files.readAll();
+  if (!bills.length) return toast('No bill files found in the YULO Bills folder.', true);
+  const have = new Set((await db.all('bills')).map(b => b.no)), missing = bills.filter(b => !have.has(b.no));
+  const max = Math.max(...bills.map(b => b.no)), next = await db.getMeta('nextBillNo', 1);
+  const msg = `Found ${bills.length} bills in the folder. ${missing.length} of them are not in the app and will be added back` +
+    (max + 1 > next ? `, and the next bill will be ${billLabel(max + 1)}.` : '.') + (bad.length ? ` ${bad.length} files could not be read and will be skipped.` : '');
+  if (!missing.length && max + 1 <= next) return toast('Nothing to rebuild: all bills in the folder are already in the app.');
+  if (!await confirmBox(msg, 'Rebuild')) return;
+  await db.putMany('bills', missing);
+  if (max + 1 > next) await db.setMeta('nextBillNo', max + 1);
+  const latest = bills.reduce((a, b) => b.createdAt > a ? b.createdAt : a, await db.getMeta('lastBillAt', ''));
+  await db.setMeta('lastBillAt', latest);
+  emit('bills'); emit('settings'); toast(`Rebuilt: ${missing.length} bills added`);
 }
