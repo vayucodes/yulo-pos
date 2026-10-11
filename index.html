@@ -146,6 +146,7 @@ label.chk input,label.radio input{width:22px;height:22px;min-height:0}
 </header>
 <div class="banner" id="updateBanner" hidden>A new version of the app is ready. <button>Update now</button></div>
 <div class="banner" id="fileBanner" hidden><span></span> <button></button></div>
+<div class="banner" id="driveBanner" hidden><span></span> <button>Sync to Google Drive</button></div>
 <div class="banner" id="backupBanner" hidden>No backup in the last 24 hours. <button>Back up now</button></div>
 <main>
  <section class="view" id="v-billing">
@@ -219,6 +220,11 @@ label.chk input,label.radio input{width:22px;height:22px;min-height:0}
    <p id="fStatus"></p>
    <p class="hint">Each bill is saved as YULO Bills / Months / October 2026 / Bill#01_10-10-2026.txt as soon as it is made. If the app's data is ever cleared, choose the same folder again and tap "Rebuild from folder" to get back all bills, reports and bill numbering. (Menu changes and settings come back only from a backup.)</p>
    <div class="acts"><button class="go" id="fChoose">Choose bills folder</button><button id="fAllow" hidden>Allow folder access</button><button id="fRebuild">Rebuild from folder</button></div>
+  </div>
+  <div class="card"><h3>Google Drive</h3>
+   <p id="dStatus"></p>
+   <p class="hint">Copies every bill to your Google Drive as YULO Bills / Months / (month) / Bill#…txt. Needs internet; billing never does. The first time, Google asks you to choose your account and allow access. A reminder appears on the last day of each month.</p>
+   <div class="acts"><button class="go" id="dSync">Sync to Google Drive</button></div>
   </div>
   <div class="card"><h3>Backup</h3>
    <p>Last backup: <b id="sLastBackup"></b></p>

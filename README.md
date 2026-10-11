@@ -38,6 +38,13 @@ If Android asks again, a banner says **Allow folder access**: tap it and any wai
 If the app's data is ever cleared: Settings > **Choose bills folder** (same YULO Bills folder) > **Rebuild from folder**.
 Bills, reports and bill numbering come back. Menu changes and settings come back only from a backup.
 
+## Google Drive sync
+Settings > Google Drive > **Sync to Google Drive** (needs internet). Bills are copied to your Drive as
+`YULO Bills/Months/October 2026/Bill#01_10-10-2026.txt`. Only new or changed bills are sent; nothing is duplicated.
+The first time, Google asks you to pick your account and allow access ("Google hasn't verified this app" may appear:
+tap **Continue**, it's your own app). On the last day of each month a yellow bar reminds you to sync.
+The app can only see files it created on your Drive, nothing else.
+
 ## Backup (do this every day)
 Settings > Backup > **Send backup to Drive / WhatsApp** (or **Save backup to tablet**). A yellow banner reminds you if a day passes without one.
 To recover: Settings > Backup > **Restore from backup** and pick the file.
